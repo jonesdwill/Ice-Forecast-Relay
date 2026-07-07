@@ -1,0 +1,41 @@
+name: Ice chart check
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"   # every 3 hours
+  workflow_dispatch: {}      # manual "Run workflow" button, for testing from land
+
+permissions:
+  contents: write   # needed so the workflow can commit state.json back
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ice relay
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          # Optional: only set BOAT_ADDRESS if replies should go somewhere
+          # other than GMAIL_ADDRESS itself.
+          # BOAT_ADDRESS: ${{ secrets.BOAT_ADDRESS }}
+        run: python ice_relay.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "ice-relay-bot"
+          git config user.email "actions@github.com"
+          git add state.json
+          git diff --quiet --cached || git commit -m "Update ice chart state [skip ci]"
+          git push
