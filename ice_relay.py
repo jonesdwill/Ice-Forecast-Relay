@@ -48,7 +48,7 @@ IMAP_HOST = "imap.gmail.com"
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 
-TARGET_KB = 50  # hard ceiling per attachment
+TARGET_KB = 100  # hard ceiling per attachment
 STATE_FILE = Path(__file__).parent / "state.json"
 
 DMI_INDEX = "https://ocean.dmi.dk/arctic/images/MODIS/{folder}/"
