@@ -167,7 +167,14 @@ def check_reload_request():
     """Return True if an unread 'ICE RELOAD' email is sitting in the Ice label."""
     with imaplib.IMAP4_SSL(IMAP_HOST) as imap:
         imap.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
-        imap.select(ICE_LABEL)
+        status, data = imap.select(ICE_LABEL)
+        if status != "OK":
+            detail = data[0].decode(errors="replace") if data and data[0] else "unknown IMAP error"
+            print(
+                f"Reload check skipped: could not open Gmail label '{ICE_LABEL}': {detail}",
+                file=sys.stderr,
+            )
+            return False
         status, data = imap.search(None, "UNSEEN")
         uids = data[0].split()
         found = False
