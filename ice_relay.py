@@ -4,7 +4,7 @@ ice_relay.py
 ============
 Runs on a schedule (GitHub Actions, every 3 hours). Each run:
 
-  1. Checks the Gmail 'Ice' label for an "ICE RELOAD" request.
+    1. Checks the Gmail 'ice' label for an "ICE RELOAD" request.
   2. For each DMI source (WA / SE / NCE), lists the live DMI directory index
      and finds the latest chart timestamp.
   3. Compares against state.json (what we last sent). If newer -- or if a
@@ -42,7 +42,7 @@ GMAIL_ADDRESS = os.environ["GMAIL_ADDRESS"]
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"]
 
 BOAT_ADDRESS = os.environ.get("BOAT_ADDRESS", GMAIL_ADDRESS)  # who replies go to
-ICE_LABEL = "Ice"  # Gmail IMAP folder name for the 'Ice' label
+ICE_LABEL = "ice"  # Gmail IMAP folder name for the reload-request label
 
 IMAP_HOST = "imap.gmail.com"
 SMTP_HOST = "smtp.gmail.com"
@@ -164,7 +164,7 @@ def build_attachment(source_code, ts):
 # --------------------------------------------------------------------------
 
 def check_reload_request():
-    """Return True if an unread 'ICE RELOAD' email is sitting in the Ice label."""
+    """Return True if an unread 'ICE RELOAD' email is sitting in the ice label."""
     with imaplib.IMAP4_SSL(IMAP_HOST) as imap:
         imap.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
         status, data = imap.select(ICE_LABEL)
