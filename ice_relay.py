@@ -5,7 +5,7 @@ ice_relay.py
 Runs on a schedule (GitHub Actions, every 3 hours). Each run:
 
     1. Checks the Gmail 'ice' label for an "ICE RELOAD" request.
-  2. For each DMI source (WA / SE / NCE), lists the live DMI directory index
+    2. For each DMI source (WA / GH / SE / NCE), lists the live DMI directory index
      and finds the latest chart timestamp.
   3. Compares against state.json (what we last sent). If newer -- or if a
      reload was requested -- fetches the PDF, rasterizes + shrinks it to
@@ -51,6 +51,10 @@ SMTP_PORT = 587
 TARGET_KB = 100  # hard ceiling per attachment
 STATE_FILE = Path(__file__).parent / "state.json"
 
+# GH "super-crop" window as fractions of the rendered page.
+# (left, top, right, bottom)
+GH_CROP_BOX = (0.33, 0.17, 0.73, 0.84)
+
 DMI_INDEX = "https://ocean.dmi.dk/arctic/images/MODIS/{folder}/"
 DMI_PDF = "https://ocean.dmi.dk/arctic/images/MODIS/{folder}/{ts}.ISKO.pdf"
 
@@ -58,6 +62,10 @@ SOURCES = {
     "WA": {
         "folder": "Greenland_WA",
         "label": "DMI Whole Greenland overview",
+    },
+    "GH": {
+        "folder": "Greenland_WA",
+        "label": "DMI Graahs havn cropped overview",
     },
     "SE": {
         "folder": "SouthEast_RIC",
@@ -114,16 +122,30 @@ def fetch_pdf(folder, ts):
     return resp.content
 
 
-def pdf_to_image(pdf_bytes, dpi=150):
+def pdf_to_image(pdf_bytes, dpi=150, color=False):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     page = doc[0]
     zoom = dpi / 72
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csGRAY)
+    colorspace = fitz.csRGB if color else fitz.csGRAY
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=colorspace)
     return Image.open(io.BytesIO(pix.tobytes("png")))
 
 
-def compress_to_target(img, target_kb=TARGET_KB, max_width=900):
-    img = img.convert("L")
+def crop_by_fraction(img, box):
+    left = int(img.width * box[0])
+    top = int(img.height * box[1])
+    right = int(img.width * box[2])
+    bottom = int(img.height * box[3])
+    # Clamp to valid bounds to avoid invalid crops if inputs are tuned.
+    left = max(0, min(left, img.width - 1))
+    top = max(0, min(top, img.height - 1))
+    right = max(left + 1, min(right, img.width))
+    bottom = max(top + 1, min(bottom, img.height))
+    return img.crop((left, top, right, bottom))
+
+
+def compress_to_target(img, target_kb=TARGET_KB, max_width=900, color=False):
+    img = img.convert("RGB" if color else "L")
     width = min(img.width, max_width)
     buf = None
 
@@ -152,8 +174,15 @@ def zip_bytes(data_bytes, filename):
 def build_attachment(source_code, ts):
     cfg = SOURCES[source_code]
     pdf_bytes = fetch_pdf(cfg["folder"], ts)
-    img = pdf_to_image(pdf_bytes)
-    jpeg_bytes, width, quality, size_kb = compress_to_target(img)
+    if source_code == "GH":
+        img = pdf_to_image(pdf_bytes, color=True)
+        img = crop_by_fraction(img, GH_CROP_BOX)
+        jpeg_bytes, width, quality, size_kb = compress_to_target(
+            img, max_width=700, color=True
+        )
+    else:
+        img = pdf_to_image(pdf_bytes)
+        jpeg_bytes, width, quality, size_kb = compress_to_target(img)
     fname = f"ICE_{source_code}_{ts}.jpg"
     print(f"[{source_code}] {ts} -> {width}px @ q{quality} -> {size_kb:.1f} KB")
     return zip_bytes(jpeg_bytes, fname), fname.replace(".jpg", ".zip")
