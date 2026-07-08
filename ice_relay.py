@@ -53,7 +53,7 @@ STATE_FILE = Path(__file__).parent / "state.json"
 
 # GH "super-crop" window as fractions of the rendered page.
 # (left, top, right, bottom)
-GH_CROP_BOX = (0.33, 0.17, 0.73, 0.84)
+GH_CROP_BOX = (0.35, 0.5966, 0.6088, 0.7611)
 
 DMI_INDEX = "https://ocean.dmi.dk/arctic/images/MODIS/{folder}/"
 DMI_PDF = "https://ocean.dmi.dk/arctic/images/MODIS/{folder}/{ts}.ISKO.pdf"
